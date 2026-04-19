@@ -75,6 +75,14 @@ export class AuthService {
     if (!user || user.resetPasswordToken !== token)
       throw new Error("Invalid refresh token");
 
+    if (
+      user.passwordChangedAt &&
+      decoded.iat &&
+      decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      throw new Error("Invalid refresh token: password changed. Please login again.");
+    }
+
     const payload = { userId: user._id, role: user.role };
 
     const accessToken = await encryptJWT(payload, ACCESS_EXPIRY);

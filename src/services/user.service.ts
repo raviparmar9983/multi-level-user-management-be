@@ -1,5 +1,6 @@
 import { User } from "../models/user.model";
 import { hashPassword } from "../utils/bcrypt";
+import { sendMail } from "../utils/mailer";
 import mongoose from "mongoose";
 
 export class UserService {
@@ -71,6 +72,18 @@ export class UserService {
 
     user.password = await hashPassword(newPassword);
     await user.save();
+
+    sendMail({
+      to: user.email,
+      subject: "Your password has been changed",
+      html: `
+        <h3>Password Updated</h3>
+        <p>Hello ${user.name},</p>
+        <strong>Your new Password: ${newPassword}</strong>
+        <p>Your account password was successfully updated by your parent account.</p>
+        <p>If you did not request this change, please contact support immediately.</p>
+      `,
+    });
 
     return true;
   }
