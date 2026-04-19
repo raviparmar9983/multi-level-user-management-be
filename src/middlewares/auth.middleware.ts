@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { decryptJWT } from "../utils/jwt";
+import { User } from "../models/user.model";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -28,6 +29,25 @@ export const authMiddleware = async (
     const token = authHeader.split(" ")[1];
 
     const decoded: any = await decryptJWT(token);
+    const user = await User.findById(decoded.userId).select("passwordChangedAt");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User not found",
+      });
+    }
+    if (
+      user.passwordChangedAt &&
+      decoded.iat &&
+      decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message:
+          "Unauthorized - Token invalid after password change. Please log in again.",
+      });
+    }
 
     req.user = {
       userId: decoded.userId,

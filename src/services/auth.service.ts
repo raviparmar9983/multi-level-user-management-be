@@ -4,6 +4,7 @@ import { hashPassword, comparePassword } from "../utils/bcrypt";
 import { encryptJWT, decryptJWT } from "../utils/jwt";
 import { sendMail } from "../utils/mailer";
 import { env } from "../config/env";
+import { verifyCaptcha } from "../utils/captcha";
 
 const ACCESS_EXPIRY = "15m";
 const REFRESH_EXPIRY = "7d";
@@ -42,11 +43,12 @@ export class AuthService {
     return user;
   }
   static async login(data: any) {
-    const { email, password } = data;
+    const { email, password, captcha } = data;
 
     const user = await User.findOne({ email });
     if (!user) throw new Error("Invalid credentials");
-
+    const isValid = await verifyCaptcha(captcha);
+    if (!isValid) throw new Error("Captcha verification failed");
     const isMatch = await comparePassword(password, user.password);
     if (!isMatch) throw new Error("Invalid credentials");
 
@@ -57,8 +59,13 @@ export class AuthService {
 
     user.resetPasswordToken = refreshToken;
     await user.save();
-
-    return { accessToken, refreshToken };
+      const userData = {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      }
+    return { user: userData, accessToken, refreshToken };
   }
 
   static async refreshToken(token: string) {
@@ -67,6 +74,14 @@ export class AuthService {
     const user = await User.findById(decoded.userId);
     if (!user || user.resetPasswordToken !== token)
       throw new Error("Invalid refresh token");
+
+    if (
+      user.passwordChangedAt &&
+      decoded.iat &&
+      decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      throw new Error("Invalid refresh token: password changed. Please login again.");
+    }
 
     const payload = { userId: user._id, role: user.role };
 
@@ -90,7 +105,7 @@ export class AuthService {
       subject: "Reset Password",
       html: `
         <h3>Reset Password</h3>
-        <a href="${env.FRONTEND_URL}/auth/reset-password?token=${resetToken}">
+        <a href="${env.FRONTEND_URL}/reset-password?token=${resetToken}">
           Reset Password
         </a>
       `,

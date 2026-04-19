@@ -18,6 +18,7 @@ export const loginSchema = yup.object({
   email: yup.string().email().required("Email is required"),
 
   password: yup.string().required("Password is required"),
+  captcha: yup.string().required("Captcha token is required"),
 });
 
 export const refreshTokenSchema = yup.object({

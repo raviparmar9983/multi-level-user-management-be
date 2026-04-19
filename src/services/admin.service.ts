@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { User } from "../models/user.model";
 import { Transaction } from "../models/transaction.model";
-import { TransactionType } from "../common/enum";
+import { TransactionType, UserRole } from "../common/enum";
 
 export class AdminService {
     static async getRootUsers(query: any) {
@@ -9,7 +9,7 @@ export class AdminService {
         const limit = Number(query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        const filter = { parentId: null };
+        const filter = { parentId: null, role: UserRole.USER };
 
         const users = await User.find(filter)
             .select("_id name balance level")
